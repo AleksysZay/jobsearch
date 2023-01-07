@@ -7,12 +7,15 @@
 				<p class="first">Категория: {{v.cat}}</p>
 				<p class="last">Дата: {{v.time_create|date:"d-m-Y H:i:s"}}</p>
 			</div>
+	{% if v.photo %}
+			<p><img class="img-article-left thumb" src="{{v.photo.url}}"></p>
+	{% endif %}
 		<h2>{{v.title}}</h2>
 	{% autoescape on %}
 	{{v.content|linebreaks|truncatewords:50}}
 	{% endautoescape %}
 			<div class="clear"></div>
-			<p class="link-read-post"><a href="{{ v.get_absolute_url }}">Читать вакансию</a></p>
+			<p class="link-read-post"><a href="{{ v.get_absolute_url }}">Откликнуться</a></p>
 			</li>
 	{% endfor %}
 </ul>

@@ -8,6 +8,6 @@ urlpatterns = [
     path('addvacancy/', addvacancy, name='add_vacancy'),
     path('contact/', contact, name='contact'),
     path('login/', login, name='login'),
-    path('vacancy/<int:vacancy_id>/', show_vacancy, name='vacancy'),
+    path('vacancy/<slug:vacancy_slug>/', show_vacancy, name='vacancy'),
     path('category/<int:cat_id>/', show_category, name='category')
 ]
