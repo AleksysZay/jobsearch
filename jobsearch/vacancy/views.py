@@ -1,78 +1,106 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, HttpResponseNotFound, Http404
+from django.views.generic import ListView, DetailView, CreateView
+from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
+from django.contrib.auth.views import LoginView
+from django.contrib.auth import logout, login
 
 from .forms import *
 from .models import *
-
-menu = [{'title': "О сайте", 'url_name': 'about'},
-        {'title': "Добавить статью", 'url_name': 'add_vacancy'},
-        {'title': "Обратная связь", 'url_name': 'contact'},
-        {'title': "Войти", 'url_name': 'login'}
-        ]
+from utils import *
 
 
-def index(request):
-    vacancies = Vacancy.objects.all()
+class VacancyHome(DataMixin, ListView):
+    model = Vacancy
+    template_name = 'vacancy/index.html'
+    context_object_name = 'vacancies'
 
-    context = {
-        'vacancies': vacancies,
-        'menu': menu,
-        'title': 'Главная страница',
-        'cat_selected': 0,
-    }
-    return render(request, 'vacancy/index.html', context=context)
+    def get_context_data(self, *, object_list=None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        c_def = self.get_user_context(title='Главная страница')
+        return dict(list(context.items()) + list(c_def.items()))
+
 
 
 def about(request):
-    return render(request, 'vacancy/about.html', {'menu': menu, 'title': 'О сайте'})
+        return render(request, 'vacancy/about.html', {'menu': menu, 'title': 'О сайте'})
 
 
-def addvacancy(request):
-    if request.method == 'POST':
-        form = AddVacancyForm(request.POST, request.FILES)
-        if form.is_valid():
-            # print(form.cleaned_data)
-            form.save()
-            return redirect('home')
-    else:
-        form = AddVacancyForm()
-    return render(request, 'vacancy/addvacancy.html', {'form': form, 'menu': menu, 'title': 'Добавление вакансии'})
+class AddPage(LoginRequiredMixin, DataMixin, CreateView):
+    form_class = AddVacancyForm
+    template_name = 'vacancy/addvacancy.html'
+    success_url = reverse_lazy('home')
+    login_url = reverse_lazy('home')
+    raise_exception = True
+
+    def get_context_data(self, *, object_list=None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        c_def = self.get_user_context(title='Добавление вакансии')
+        return dict(list(context.items()) + list(c_def.items()))
 
 
-def contact(request):
-    return HttpResponse("Обратная связь")
+class ShowVacancy(DataMixin, DetailView):
+    model = Vacancy
+    template_name = 'vacancy/vacancy.html'
+    slug_url_kwarg = 'vacancy_slug'
+    context_object_name = 'vacancy'
+
+    def get_context_data(self, *, object_list=None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        c_def = self.get_user_context(title=context['vacancy'])
+        return dict(list(context.items()) + list(c_def.items()))
 
 
-def login(request):
-    return HttpResponse("Авторизация")
+class VacancyCategory(DataMixin, ListView):
+    model = Vacancy
+    template_name = 'vacancy/index.html'
+    context_object_name = 'vacancies'
+    allow_empty = False
+
+    def get_queryset(self):
+        return Vacancy.objects.filter(cat__slug=self.kwargs['cat_slug'])
+
+    def get_context_data(self, *, object_list=None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        c_def = self.get_user_context(title='Категория - ' + str(context['vacancies'][0].cat),
+                                      cat_selected=context['vacancies'][0].cat_id)
+        return dict(list(context.items()) + list(c_def.items()))
 
 
-def show_vacancy(request, vacancy_slug):
-    vacancy = get_object_or_404(Vacancy, slug=vacancy_slug)
+class RegisterUser(DataMixin, CreateView):
+    form_class = RegisterUserForm
+    template_name = 'vacancy/register.html'
+    success_url = reverse_lazy('login')
 
-    context = {
-        'vacancy': vacancy,
-        'menu': menu,
-        'title': vacancy.title,
-        'cat_selected': vacancy.cat_id,
-    }
+    def get_context_data(self, *, object_list=None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        c_def = self.get_user_context(title="Регистрация")
+        return dict(list(context.items()) + list(c_def.items()))
 
-    return render(request, 'vacancy/vacancy.html', context=context)
+    def form_valid(self, form):
+        user = form.save()
+        login(self.request, user)
+        return redirect('home')
 
 
-def show_category(request, cat_id):
-    vacancies = Vacancy.objects.filter(cat_id=cat_id)
+class LoginUser(DataMixin, LoginView):
+    form_class = LoginUserForm
+    template_name = 'vacancy/login.html'
 
-    if len(vacancies) == 0:
-        raise Http404()
+    def get_context_data(self, *, object_list=None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        c_def = self.get_user_context(title="Авторизация")
+        return dict(list(context.items()) + list(c_def.items()))
 
-    context = {
-        'vacancies': vacancies,
-        'menu': menu,
-        'title': 'Отображение по категориям',
-        'cat_selected': cat_id,
-    }
-    return render(request, 'vacancy/index.html', context=context)
+    def get_success_url(self):
+        return reverse_lazy('home')
+
+
+def logout_user(request):
+    logout(request)
+    return redirect('login')
 
 
 def pageNotFound(request, exception):
